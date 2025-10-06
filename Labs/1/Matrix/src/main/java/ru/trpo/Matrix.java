@@ -5,7 +5,6 @@ import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
@@ -32,6 +31,26 @@ public class Matrix {
         this.rows = rows;
         this.cols = cols;
         this.data = new double[rows][cols];
+    }
+
+    public Matrix(double[][] newData) {
+        if (newData == null || newData.length < 1) {
+            throw new IllegalArgumentException("Data can't be empty");
+        }
+        int newRows = newData.length;
+        int newCols = newData[0].length;
+        if (newCols < 1) {
+            throw new IllegalArgumentException("Invalid input, matrices must have a positive size");
+        }
+        for (double[] datum : newData) {
+            if (datum.length != newCols) {
+                throw new IllegalArgumentException("All rows must have the equal number of columns");
+            }
+        }
+        data = newData.clone();
+        this.rows = newRows;
+        this.cols = newCols;
+        this.data = newData;
     }
 
     public Matrix(Matrix other) {
@@ -168,7 +187,7 @@ public class Matrix {
         } else {
             double result = 0;
             for (int i = 0; i < rows; i++) {
-                Matrix minor = this.minor(1, i + 1);
+                Matrix minor = minor(1, i + 1);
                 double detMinor = minor.determinant();
                 if (i % 2 == 0) {
                     result += data[0][i] * detMinor;
@@ -178,6 +197,24 @@ public class Matrix {
             }
             return result;
         }
+    }
+
+    public Matrix minor(int row, int column) {
+        Matrix result = new Matrix(rows - 1, cols - 1);
+        for (int i = 0, o = 0; i < rows; i++) {
+            if (i == row - 1) {
+                continue;
+            }
+            for (int j = 0, m = 0; j < cols; j++) {
+                if (j == column - 1) {
+                    continue;
+                }
+                result.data[o][m] = data[i][j];
+                m++;
+            }
+            o++;
+        }
+        return result;
     }
 
     public Matrix cofactors() {
@@ -205,12 +242,12 @@ public class Matrix {
     }
 
     public Matrix inverse() {
-        double det = determinant();
-        if (Math.abs(det) < EPS) {
+        double determinant = determinant();
+        if (Math.abs(determinant) < EPS) {
             throw new IllegalStateException("Determinant can't be zero");
         }
         Matrix cofactorsT = this.cofactors().transpose();
-        return cofactorsT.multiply(1.0 / det);
+        return cofactorsT.multiply(1.0 / determinant);
     }
 
     public StringWriter saveToText() throws IOException {
@@ -234,28 +271,16 @@ public class Matrix {
     }
 
     public static Matrix loadFromText(Reader in) throws IOException {
-        BufferedReader br = new BufferedReader(in);
-        String header = br.readLine();
-        if (header == null) {
-            throw new EOFException("Empty input");
-        }
-        String[] hw = header.trim().split("\\s+");
-        if (hw.length < 2) {
-            throw new IOException("Header must contain rows and cols");
-        }
-        int r = Integer.parseInt(hw[0]);
-        int c = Integer.parseInt(hw[1]);
-        Matrix m = new Matrix(r, c);
-        for (int i = 0; i < r; i++) {
-            String line = br.readLine();
-            if (line == null) {
-                throw new EOFException("Unexpected end of input at row " + i);
-            }
+        BufferedReader bufferedReader = new BufferedReader(in);
+        String header = bufferedReader.readLine();
+        String[] StringRowsAndCols = header.trim().split("\\s+");
+        int rows = Integer.parseInt(StringRowsAndCols[0]);
+        int cols = Integer.parseInt(StringRowsAndCols[1]);
+        Matrix m = new Matrix(rows, cols);
+        for (int i = 0; i < rows; i++) {
+            String line = bufferedReader.readLine();
             String[] parts = line.trim().split("\\s+");
-            if (parts.length != c) {
-                throw new IOException("Invalid number of columns at row " + i);
-            }
-            for (int j = 0; j < c; j++) {
+            for (int j = 0; j < cols; j++) {
                 m.data[i][j] = Double.parseDouble(parts[j]);
             }
         }
@@ -278,15 +303,15 @@ public class Matrix {
 
     public static Matrix loadFromBinary(InputStream in) throws IOException {
         DataInputStream dataInputStream = new DataInputStream(in);
-        int r = dataInputStream.readInt();
-        int c = dataInputStream.readInt();
-        Matrix m = new Matrix(r, c);
-        for (int i = 0; i < r; i++) {
-            for (int j = 0; j < c; j++) {
-                m.data[i][j] = dataInputStream.readDouble();
+        int rows = dataInputStream.readInt();
+        int cols = dataInputStream.readInt();
+        Matrix matrix = new Matrix(rows, cols);
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                matrix.data[i][j] = dataInputStream.readDouble();
             }
         }
-        return m;
+        return matrix;
     }
 
     @Override
@@ -356,23 +381,5 @@ public class Matrix {
         if (this.rows != other.rows || this.cols != other.cols) {
             throw new IllegalArgumentException("Matrix must be the same size");
         }
-    }
-
-    private Matrix minor(int row, int column) {
-        Matrix result = new Matrix(rows - 1, cols - 1);
-        for (int i = 0, o = 0; i < rows; i++) {
-            if (i == row - 1) {
-                continue;
-            }
-            for (int j = 0, m = 0; j < cols; j++) {
-                if (j == column - 1) {
-                    continue;
-                }
-                result.data[o][m] = data[i][j];
-                m++;
-            }
-            o++;
-        }
-        return result;
     }
 }
