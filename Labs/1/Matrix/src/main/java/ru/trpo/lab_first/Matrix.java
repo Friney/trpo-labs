@@ -1,4 +1,4 @@
-package ru.trpo;
+package ru.trpo.lab_first;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
